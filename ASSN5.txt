@@ -1,0 +1,99 @@
+import java.util.Scanner;
+
+class TokenRing {
+    private int numProcesses;
+    private int token;
+    private final Object lock = new Object();  // Lock for token passing
+    private boolean[] criticalSectionFlag;  // Array to check if any process is in critical section
+    private int maxRounds;  // Maximum number of rounds to run the token ring
+
+    // Constructor for TokenRing
+    public TokenRing(int numProcesses, int maxRounds) {
+        this.numProcesses = numProcesses;
+        this.token = 0;  // Initially, Process 0 holds the token
+        this.maxRounds = maxRounds;
+        this.criticalSectionFlag = new boolean[numProcesses];
+        
+        // Initially, no process is in the critical section
+        for (int i = 0; i < numProcesses; i++) {
+            criticalSectionFlag[i] = false;
+        }
+    }
+
+    // Method to enter critical section
+    public void enterCriticalSection(int processId, int currentRound) {
+        synchronized (lock) {
+            // Wait until the current process gets the token
+            while (token != processId) {
+                try {
+                    lock.wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            // Now the process has the token and can enter the critical section
+            System.out.println("Process " + processId + " entering critical section. (Round " + currentRound + ")");
+            criticalSectionFlag[processId] = true;
+            try {
+                Thread.sleep(2000); // Simulate some work in the critical section
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // Process is done with the critical section
+            System.out.println("Process " + processId + " leaving critical section.");
+            criticalSectionFlag[processId] = false;
+
+            // Pass the token to the next process
+            token = (token + 1) % numProcesses;
+            lock.notifyAll();  // Notify all other threads
+        }
+    }
+
+    // Method to run a process
+    public void runProcess(int processId) {
+        int currentRound = 1;  // Start counting rounds
+        while (currentRound <= maxRounds) {
+            enterCriticalSection(processId, currentRound);
+            currentRound++;
+        }
+    }
+
+    // Start the token ring simulation
+    public void startTokenRing() {
+        // Create and start threads for each process
+        for (int i = 0; i < numProcesses; i++) {
+            final int processId = i;
+            Thread thread = new Thread(() -> runProcess(processId));
+            thread.start();
+        }
+    }
+}
+
+public class TokenRingExample {
+    public static void main(String[] args) {
+        // Create a scanner to get user input for the number of processes and rounds
+        Scanner scanner = new Scanner(System.in);
+        
+        System.out.print("Enter the number of processes: ");
+        int numProcesses = scanner.nextInt(); // Read the number of processes from the user
+
+        System.out.print("Enter the number of rounds to run: ");
+        int maxRounds = scanner.nextInt();  // Read the number of rounds to run
+
+        // Validate the input (make sure it's greater than 1)
+        if (numProcesses < 2) {
+            System.out.println("There must be at least 2 processes for mutual exclusion.");
+            return;
+        }
+        if (maxRounds < 1) {
+            System.out.println("There must be at least 1 round to run.");
+            return;
+        }
+
+        // Create a TokenRing instance with the user-provided number of processes and rounds
+        TokenRing tokenRing = new TokenRing(numProcesses, maxRounds);
+        tokenRing.startTokenRing(); // Start the token ring simulation
+    }
+}
